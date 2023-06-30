@@ -50,6 +50,7 @@ class TestReporter {
   readonly listSuites = core.getInput('list-suites', {required: true}) as 'all' | 'failed'
   readonly listTests = core.getInput('list-tests', {required: true}) as 'all' | 'failed' | 'none'
   readonly maxAnnotations = parseInt(core.getInput('max-annotations', {required: true}))
+  readonly getGitFiles = core.getInput('get-git-files', {required: true}) === 'true'
   readonly failOnError = core.getInput('fail-on-error', {required: true}) === 'true'
   readonly workDirInput = core.getInput('working-directory', {required: false})
   readonly onlySummary = core.getInput('only-summary', {required: false}) === 'true'
@@ -112,11 +113,12 @@ class TestReporter {
         )
       : new LocalFileProvider(this.name, pattern)
 
+    // this.maxAnnotations (GHA input max-annotations) needs to be > 0 to show error and failure annotations on the test report page
     const parseErrors = this.maxAnnotations > 0
-    const trackedFiles = await inputProvider.listTrackedFiles()
+    const trackedFiles = this.getGitFiles ? await inputProvider.listTrackedFiles() : []
     const workDir = this.artifact ? undefined : normalizeDirPath(process.cwd(), true)
 
-    core.info(`Found ${trackedFiles.length} files tracked by GitHub`)
+    if (this.getGitFiles) core.info(`Found ${trackedFiles.length} files tracked by GitHub`)
 
     const options: ParseOptions = {
       workDir,
