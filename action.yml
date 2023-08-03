@@ -54,6 +54,10 @@ inputs:
       Must be less or equal to 50.
     required: true
     default: '10'
+  get-git-files:
+    description: |
+      Allows the action to access the caller's repo files (e.g. listing repo files, accessing files for pointing out where errors are in the code)
+    default: 'false'
   fail-on-error:
     description: Set this action as failed if test report contain any failed test
     required: true
