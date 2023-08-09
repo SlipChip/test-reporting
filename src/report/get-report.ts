@@ -4,7 +4,7 @@ import {Align, formatTime, Icon, link, table} from '../utils/markdown-utils'
 import {getFirstNonEmptyLine} from '../utils/parse-utils'
 import {slug} from '../utils/slugger'
 
-const MAX_REPORT_LENGTH = 65535
+const MAX_REPORT_LENGTH = 1000000
 
 export interface ReportOptions {
   listSuites: 'all' | 'failed'

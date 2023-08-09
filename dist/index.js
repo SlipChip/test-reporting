@@ -215,7 +215,7 @@ const github = __importStar(__nccwpck_require__(5438));
 const crypto_1 = __nccwpck_require__(6113);
 const artifact_provider_1 = __nccwpck_require__(7171);
 const local_file_provider_1 = __nccwpck_require__(9399);
-const get_annotations_1 = __nccwpck_require__(5867);
+// import {getAnnotations} from './report/get-annotations'
 const get_report_1 = __nccwpck_require__(3737);
 const dart_json_parser_1 = __nccwpck_require__(4528);
 const dotnet_trx_parser_1 = __nccwpck_require__(2664);
@@ -253,7 +253,7 @@ class TestReporter {
         this.reporter = core.getInput('reporter', { required: true });
         this.listSuites = core.getInput('list-suites', { required: true });
         this.listTests = core.getInput('list-tests', { required: true });
-        this.maxAnnotations = parseInt(core.getInput('max-annotations', { required: true }));
+        // readonly maxAnnotations = parseInt(core.getInput('max-annotations', {required: true}))
         this.getGitFiles = core.getInput('get-git-files', { required: true }) === 'true';
         this.failOnError = core.getInput('fail-on-error', { required: true }) === 'true';
         this.workDirInput = core.getInput('working-directory', { required: false });
@@ -271,10 +271,10 @@ class TestReporter {
             core.setFailed(`Input parameter 'list-tests' has invalid value`);
             return;
         }
-        if (isNaN(this.maxAnnotations) || this.maxAnnotations < 0 || this.maxAnnotations > 50) {
-            core.setFailed(`Input parameter 'max-annotations' has invalid value`);
-            return;
-        }
+        // if (isNaN(this.maxAnnotations) || this.maxAnnotations < 0 || this.maxAnnotations > 50) {
+        //   core.setFailed(`Input parameter 'max-annotations' has invalid value`)
+        //   return
+        // }
         if (this.outputTo !== 'checks' && this.outputTo !== 'step-summary') {
             core.setFailed(`Input parameter 'output-to' has invalid value`);
             return;
@@ -297,7 +297,10 @@ class TestReporter {
             ? new artifact_provider_1.ArtifactProvider(this.octokit, this.artifact, this.name, pattern, this.context.sha, this.context.runId, this.token)
             : new local_file_provider_1.LocalFileProvider(this.name, pattern);
         // this.maxAnnotations (GHA input max-annotations) needs to be > 0 to show error and failure annotations on the test report page
-        const parseErrors = this.maxAnnotations > 0;
+        // Note if annotations want to be used again, this needs to be uncommented
+        // const parseErrors = this.maxAnnotations > 0
+        // Hardcoded parseErrors to true so that error messages will appear in the report summary while annotations are essentially disabled
+        const parseErrors = true;
         const trackedFiles = this.getGitFiles ? await inputProvider.listTrackedFiles() : [];
         const workDir = this.artifact ? undefined : path_utils_1.normalizeDirPath(process.cwd(), true);
         if (this.getGitFiles)
@@ -380,8 +383,8 @@ class TestReporter {
         core.info('Creating report summary');
         const { listSuites, listTests, onlySummary, slugPrefix } = this;
         const summary = get_report_1.getReport(results, { listSuites, listTests, baseUrl, slugPrefix, onlySummary });
-        core.info('Creating annotations');
-        const annotations = get_annotations_1.getAnnotations(results, this.maxAnnotations);
+        // core.info('Creating annotations')
+        // const annotations = getAnnotations(results, this.maxAnnotations)
         const isFailed = results.some(tr => tr.result === 'failed');
         const conclusion = isFailed ? 'failure' : 'success';
         const passed = results.reduce((sum, tr) => sum + tr.passed, 0);
@@ -397,8 +400,8 @@ class TestReporter {
                     status: 'completed',
                     output: {
                         title: shortSummary,
-                        summary,
-                        annotations
+                        summary
+                        // annotations
                     },
                     ...github.context.repo
                 });
@@ -412,30 +415,30 @@ class TestReporter {
                 core.summary.addRaw(`# ${shortSummary}`);
                 core.summary.addRaw(summary);
                 await core.summary.write();
-                for (const annotation of annotations) {
-                    let fn;
-                    switch (annotation.annotation_level) {
-                        case 'failure':
-                            fn = core.error;
-                            break;
-                        case 'warning':
-                            fn = core.warning;
-                            break;
-                        case 'notice':
-                            fn = core.notice;
-                            break;
-                        default:
-                            continue;
-                    }
-                    fn(annotation.message, {
-                        title: annotation.title,
-                        file: annotation.path,
-                        startLine: annotation.start_line,
-                        endLine: annotation.end_line,
-                        startColumn: annotation.start_column,
-                        endColumn: annotation.end_column
-                    });
-                }
+                // for (const annotation of annotations) {
+                //   let fn
+                //   switch (annotation.annotation_level) {
+                //     case 'failure':
+                //       fn = core.error
+                //       break
+                //     case 'warning':
+                //       fn = core.warning
+                //       break
+                //     case 'notice':
+                //       fn = core.notice
+                //       break
+                //     default:
+                //       continue
+                //   }
+                //   fn(annotation.message, {
+                //     title: annotation.title,
+                //     file: annotation.path,
+                //     startLine: annotation.start_line,
+                //     endLine: annotation.end_line,
+                //     startColumn: annotation.start_column,
+                //     endColumn: annotation.end_column
+                //   })
+                // }
                 break;
             }
         }
@@ -1471,94 +1474,6 @@ exports.MochawesomeJsonParser = MochawesomeJsonParser;
 
 /***/ }),
 
-/***/ 5867:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getAnnotations = void 0;
-const markdown_utils_1 = __nccwpck_require__(6482);
-const parse_utils_1 = __nccwpck_require__(7811);
-function getAnnotations(results, maxCount) {
-    var _a, _b, _c, _d;
-    if (maxCount === 0) {
-        return [];
-    }
-    // Collect errors from TestRunResults
-    // Merge duplicates if there are more test results files processed
-    const errors = [];
-    const mergeDup = results.length > 1;
-    for (const tr of results) {
-        for (const ts of tr.suites) {
-            for (const tg of ts.groups) {
-                for (const tc of tg.tests) {
-                    const err = tc.error;
-                    if (err === undefined) {
-                        continue;
-                    }
-                    const path = (_a = err.path) !== null && _a !== void 0 ? _a : tr.path;
-                    const line = (_b = err.line) !== null && _b !== void 0 ? _b : 0;
-                    if (mergeDup) {
-                        const dup = errors.find(e => path === e.path && line === e.line && err.details === e.details);
-                        if (dup !== undefined) {
-                            dup.testRunPaths.push(tr.path);
-                            continue;
-                        }
-                    }
-                    errors.push({
-                        testRunPaths: [tr.path],
-                        suiteName: ts.name,
-                        testName: tg.name ? `${tg.name} ► ${tc.name}` : tc.name,
-                        details: err.details,
-                        message: (_d = (_c = err.message) !== null && _c !== void 0 ? _c : parse_utils_1.getFirstNonEmptyLine(err.details)) !== null && _d !== void 0 ? _d : 'Test failed',
-                        path,
-                        line
-                    });
-                }
-            }
-        }
-    }
-    // Limit number of created annotations
-    errors.splice(maxCount + 1);
-    const annotations = errors.map(e => {
-        const message = [
-            'Failed test found in:',
-            e.testRunPaths.map(p => `  ${p}`).join('\n'),
-            'Error:',
-            ident(markdown_utils_1.fixEol(e.message), '  ')
-        ].join('\n');
-        return enforceCheckRunLimits({
-            path: e.path,
-            start_line: e.line,
-            end_line: e.line,
-            annotation_level: 'failure',
-            title: `${e.suiteName} ► ${e.testName}`,
-            raw_details: markdown_utils_1.fixEol(e.details),
-            message
-        });
-    });
-    return annotations;
-}
-exports.getAnnotations = getAnnotations;
-function enforceCheckRunLimits(err) {
-    err.title = markdown_utils_1.ellipsis(err.title || '', 255);
-    err.message = markdown_utils_1.ellipsis(err.message, 65535);
-    if (err.raw_details) {
-        err.raw_details = markdown_utils_1.ellipsis(err.raw_details, 65535);
-    }
-    return err;
-}
-function ident(text, prefix) {
-    return text
-        .split(/\n/g)
-        .map(line => prefix + line)
-        .join('\n');
-}
-
-
-/***/ }),
-
 /***/ 3737:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -1589,7 +1504,7 @@ const core = __importStar(__nccwpck_require__(2186));
 const markdown_utils_1 = __nccwpck_require__(6482);
 const parse_utils_1 = __nccwpck_require__(7811);
 const slugger_1 = __nccwpck_require__(3328);
-const MAX_REPORT_LENGTH = 65535;
+const MAX_REPORT_LENGTH = 1000000;
 const defaultOptions = {
     listSuites: 'all',
     listTests: 'all',
