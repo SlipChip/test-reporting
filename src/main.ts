@@ -8,7 +8,7 @@ import {LocalFileProvider} from './input-providers/local-file-provider'
 import {FileContent} from './input-providers/input-provider'
 import {ParseOptions, TestParser} from './test-parser'
 import {TestRunResult} from './test-results'
-import {getAnnotations} from './report/get-annotations'
+// import {getAnnotations} from './report/get-annotations'
 import {getReport} from './report/get-report'
 
 import {DartJsonParser} from './parsers/dart-json/dart-json-parser'
@@ -49,7 +49,7 @@ class TestReporter {
   readonly reporter = core.getInput('reporter', {required: true})
   readonly listSuites = core.getInput('list-suites', {required: true}) as 'all' | 'failed'
   readonly listTests = core.getInput('list-tests', {required: true}) as 'all' | 'failed' | 'none'
-  readonly maxAnnotations = parseInt(core.getInput('max-annotations', {required: true}))
+  // readonly maxAnnotations = parseInt(core.getInput('max-annotations', {required: true}))
   readonly getGitFiles = core.getInput('get-git-files', {required: true}) === 'true'
   readonly failOnError = core.getInput('fail-on-error', {required: true}) === 'true'
   readonly workDirInput = core.getInput('working-directory', {required: false})
@@ -73,10 +73,10 @@ class TestReporter {
       return
     }
 
-    if (isNaN(this.maxAnnotations) || this.maxAnnotations < 0 || this.maxAnnotations > 50) {
-      core.setFailed(`Input parameter 'max-annotations' has invalid value`)
-      return
-    }
+    // if (isNaN(this.maxAnnotations) || this.maxAnnotations < 0 || this.maxAnnotations > 50) {
+    //   core.setFailed(`Input parameter 'max-annotations' has invalid value`)
+    //   return
+    // }
 
     if (this.outputTo !== 'checks' && this.outputTo !== 'step-summary') {
       core.setFailed(`Input parameter 'output-to' has invalid value`)
@@ -114,7 +114,11 @@ class TestReporter {
       : new LocalFileProvider(this.name, pattern)
 
     // this.maxAnnotations (GHA input max-annotations) needs to be > 0 to show error and failure annotations on the test report page
-    const parseErrors = this.maxAnnotations > 0
+    // Note if annotations want to be used again, this needs to be uncommented
+    // const parseErrors = this.maxAnnotations > 0
+
+    // Hardcoded parseErrors to true so that error messages will appear in the report summary while annotations are essentially disabled
+    const parseErrors = true
     const trackedFiles = this.getGitFiles ? await inputProvider.listTrackedFiles() : []
     const workDir = this.artifact ? undefined : normalizeDirPath(process.cwd(), true)
 
@@ -210,8 +214,8 @@ class TestReporter {
     const {listSuites, listTests, onlySummary, slugPrefix} = this
     const summary = getReport(results, {listSuites, listTests, baseUrl, slugPrefix, onlySummary})
 
-    core.info('Creating annotations')
-    const annotations = getAnnotations(results, this.maxAnnotations)
+    // core.info('Creating annotations')
+    // const annotations = getAnnotations(results, this.maxAnnotations)
 
     const isFailed = results.some(tr => tr.result === 'failed')
     const conclusion = isFailed ? 'failure' : 'success'
@@ -230,8 +234,8 @@ class TestReporter {
           status: 'completed',
           output: {
             title: shortSummary,
-            summary,
-            annotations
+            summary
+            // annotations
           },
           ...github.context.repo
         })
@@ -245,31 +249,31 @@ class TestReporter {
         core.summary.addRaw(`# ${shortSummary}`)
         core.summary.addRaw(summary)
         await core.summary.write()
-        for (const annotation of annotations) {
-          let fn
-          switch (annotation.annotation_level) {
-            case 'failure':
-              fn = core.error
-              break
-            case 'warning':
-              fn = core.warning
-              break
-            case 'notice':
-              fn = core.notice
-              break
-            default:
-              continue
-          }
+        // for (const annotation of annotations) {
+        //   let fn
+        //   switch (annotation.annotation_level) {
+        //     case 'failure':
+        //       fn = core.error
+        //       break
+        //     case 'warning':
+        //       fn = core.warning
+        //       break
+        //     case 'notice':
+        //       fn = core.notice
+        //       break
+        //     default:
+        //       continue
+        //   }
 
-          fn(annotation.message, {
-            title: annotation.title,
-            file: annotation.path,
-            startLine: annotation.start_line,
-            endLine: annotation.end_line,
-            startColumn: annotation.start_column,
-            endColumn: annotation.end_column
-          })
-        }
+        //   fn(annotation.message, {
+        //     title: annotation.title,
+        //     file: annotation.path,
+        //     startLine: annotation.start_line,
+        //     endLine: annotation.end_line,
+        //     startColumn: annotation.start_column,
+        //     endColumn: annotation.end_column
+        //   })
+        // }
         break
       }
     }
